@@ -89,15 +89,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 # 🚀 Usage
 
-Allow camera access when prompted
-
-Face the camera - detected faces will show with names and confidence scores
-
-Recognized faces are automatically logged in logs/attendance_log.txt
-
-Press 'q' to quit the application
-
-Run python main.py
+1. Allow camera access when prompted
+2. Face the camera - detected faces will show with names and confidence scores
+3. Recognized faces are automatically logged in logs/attendance_log.txt
+4. Press 'q' to quit the application
+5. Run python main.py
 ```bash
 python main.py
-
