@@ -1,7 +1,6 @@
 """
 Face Detection and Recognition Module
 Phase 1 - Smart Attendance System
-Developed during Vocational Training at OLF
 """
 
 import face_recognition
@@ -9,20 +8,14 @@ import os
 import sys
 import cv2
 import numpy as np
-from utils.helpers import (
-    calculate_face_confidence, 
-    log_attendance, 
-    draw_face_annotations,
-    setup_directories,
-    validate_known_faces
-)
-from config import *
+import time
 
+# Import config without cv2 dependencies
+from config import *
 
 class FaceRecognitionSystem:
     """
     Main class for face detection and recognition system
-    Handles face encoding, recognition, and attendance logging
     """
     
     def __init__(self):
@@ -37,7 +30,7 @@ class FaceRecognitionSystem:
         self.frame_count = 0
         
         # Setup directories and encode known faces
-        setup_directories()
+        self.setup_directories()
         self.encode_known_faces()
         
         print("=" * 50)
@@ -45,21 +38,25 @@ class FaceRecognitionSystem:
         print(f"Loaded {len(self.known_face_names)} known faces")
         print("=" * 50)
 
+    def setup_directories(self):
+        """Create necessary directories if they don't exist"""
+        os.makedirs(KNOWN_FACES_DIR, exist_ok=True)
+        os.makedirs(LOG_DIR, exist_ok=True)
+        print(f"Directories verified:")
+        print(f"- Known faces: {KNOWN_FACES_DIR}")
+        print(f"- Logs: {LOG_DIR}")
+
     def encode_known_faces(self):
-        """
-        Encode all known faces from the known_faces directory
-        Converts face images to encodings for comparison
-        """
+        """Encode all known faces from the known_faces directory"""
         try:
-            # Validate known faces directory
-            image_files = validate_known_faces(KNOWN_FACES_DIR)
+            images = [f for f in os.listdir(KNOWN_FACES_DIR) 
+                     if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
             
-            if not image_files:
+            if not images:
                 print("⚠️  No face images found in known_faces directory")
-                print("Please add face images to proceed.")
                 return
 
-            for image_file in image_files:
+            for image_file in images:
                 image_path = os.path.join(KNOWN_FACES_DIR, image_file)
                 
                 # Load and encode face
@@ -68,40 +65,36 @@ class FaceRecognitionSystem:
                 
                 if face_encodings:
                     self.known_face_encodings.append(face_encodings[0])
-                    # Store name without file extension
                     name = os.path.splitext(image_file)[0]
                     self.known_face_names.append(name)
                     print(f"✓ Encoded face: {name}")
                 else:
                     print(f"⚠️  No face found in: {image_file}")
             
-            if not self.known_face_encodings:
-                print("❌ Error: No faces could be encoded from known_faces directory")
-                print("Please check image quality and ensure faces are visible.")
-                
         except Exception as e:
             print(f"❌ Error encoding known faces: {e}")
-            sys.exit(1)
+
+    def calculate_face_confidence(self, face_distance, face_match_threshold=0.6):
+        """Calculate confidence percentage for face matches"""
+        range_val = (1.0 - face_match_threshold)
+        linear_val = (1.0 - face_distance) / (range_val * 2.0)
+
+        if face_distance > face_match_threshold:
+            return str(round(linear_val * 100, 2)) + '%'
+        else:
+            value = (linear_val + ((1.0 - linear_val) * 
+                     pow((linear_val - 0.5) * 2, 0.2))) * 100
+            return str(round(value, 2)) + '%'
 
     def process_frame(self, frame):
-        """
-        Process a single frame for face detection and recognition
-        
-        Args:
-            frame: Video frame to process
-            
-        Returns:
-            tuple: (processed_frame, recognized_names)
-        """
-        # Resize frame for faster processing
+        """Process a single frame for face detection and recognition"""
         small_frame = cv2.resize(frame, (0, 0), fx=FRAME_SCALE_FACTOR, 
                                 fy=FRAME_SCALE_FACTOR)
-        rgb_small_frame = small_frame[:, :, ::-1]  # Convert BGR to RGB
+        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
 
         # Find all faces in current frame
         self.face_locations = face_recognition.face_locations(rgb_small_frame)
-        self.face_encodings = face_recognition.face_encodings(
-            rgb_small_frame, self.face_locations)
+        self.face_encodings = face_recognition.face_encodings(rgb_small_frame, self.face_locations)
         
         self.face_names = []
         recognized_names = []
@@ -113,60 +106,62 @@ class FaceRecognitionSystem:
             face_distances = face_recognition.face_distance(
                 self.known_face_encodings, face_encoding)
             
-            # Find best match
             best_match_index = np.argmin(face_distances) if len(face_distances) > 0 else 0
             name = "Unknown"
             confidence = "??%"
             
             if len(face_distances) > 0:
-                confidence = calculate_face_confidence(
+                confidence = self.calculate_face_confidence(
                     face_distances[best_match_index], FACE_MATCH_THRESHOLD)
                 confidence_value = float(confidence[:-1])
 
-                # Check if match meets confidence threshold
                 if confidence_value > CONFIDENCE_THRESHOLD and matches[best_match_index]:
                     name = self.known_face_names[best_match_index]
                     recognized_names.append(name)
-                    
-                    # Log attendance if not previously recognized in this session
-                    if name not in self.previously_recognized:
-                        log_attendance(name, LOG_FILE)
-                        self.previously_recognized.append(name)
 
             display_name = f'{name} ({confidence})'
             self.face_names.append(display_name)
 
-        # Draw annotations on the frame
-        processed_frame = frame.copy()
-        if self.face_locations and self.face_names:
-            processed_frame = draw_face_annotations(
-                processed_frame, self.face_locations, self.face_names, 
-                int(1/FRAME_SCALE_FACTOR)
-            )
-        
-        return processed_frame, recognized_names
+        return recognized_names
+
+    def draw_face_annotations(self, frame, scale_factor=4):
+        """Draw bounding boxes and names on detected faces"""
+        for (top, right, bottom, left), name in zip(self.face_locations, self.face_names):
+            # Scale coordinates back to original frame size
+            top = int(top * scale_factor)
+            right = int(right * scale_factor)
+            bottom = int(bottom * scale_factor)
+            left = int(left * scale_factor)
+
+            # Draw bounding box around face
+            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+            
+            # Draw background rectangle for name
+            cv2.rectangle(frame, (left, bottom - 35), (right, bottom), 
+                         (0, 0, 255), cv2.FILLED)
+            
+            # Draw name and confidence text
+            cv2.putText(frame, name, (left + 6, bottom - 6), 
+                       cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
 
     def run_recognition(self):
-        """
-        Main method to run face recognition system
-        Handles camera initialization and main processing loop
-        """
+        """Main method to run face recognition system"""
         print("🚀 Starting face recognition system...")
         print("📷 Initializing camera...")
         
-        video_capture = cv2.VideoCapture(CAMERA_INDEX, CAMERA_API_PREFERENCE)
+        # Use default camera without Windows-specific API
+        video_capture = cv2.VideoCapture(CAMERA_INDEX)
 
         if not video_capture.isOpened():
             print("❌ Error: Could not access camera")
-            print("Please check:")
-            print("1. Camera is connected")
-            print("2. No other application is using the camera")
-            print("3. Camera drivers are installed")
             sys.exit(1)
 
         print("✅ Camera initialized successfully")
         print("🎯 Press 'q' to quit the application")
         print("-" * 50)
+
+        start_time = time.time()
+        frame_count = 0
 
         try:
             while True:
@@ -176,17 +171,26 @@ class FaceRecognitionSystem:
                     print("❌ Error: Could not read frame from camera")
                     break
 
+                # Flip frame for mirror effect
+                frame = cv2.flip(frame, 1)
+                
                 # Process every other frame to improve performance
                 self.frame_count += 1
                 if self.frame_count % PROCESS_EVERY_N_FRAME == 0:
-                    processed_frame, recognized_names = self.process_frame(frame)
+                    recognized_names = self.process_frame(frame)
+                    self.draw_face_annotations(frame, int(1/FRAME_SCALE_FACTOR))
                     self.process_current_frame = True
                 else:
-                    processed_frame = frame
                     self.process_current_frame = False
 
+                # Calculate and display FPS
+                frame_count += 1
+                fps = frame_count / (time.time() - start_time)
+                cv2.putText(frame, f"FPS: {fps:.1f}", (10, 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
                 # Display the resulting frame
-                cv2.imshow(DISPLAY_WINDOW_NAME, processed_frame)
+                cv2.imshow(DISPLAY_WINDOW_NAME, frame)
 
                 # Break loop on 'q' press
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -203,7 +207,6 @@ class FaceRecognitionSystem:
             cv2.destroyAllWindows()
             print("✅ Camera resources released")
             print("🎉 Face recognition system stopped successfully.")
-            print(f"📊 Total faces recognized this session: {len(self.previously_recognized)}")
 
 
 if __name__ == '__main__':

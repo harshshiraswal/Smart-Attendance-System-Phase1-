@@ -14,13 +14,6 @@ import os
 def calculate_face_confidence(face_distance, face_match_threshold=0.6):
     """
     Calculate confidence percentage for face matches
-    
-    Args:
-        face_distance: Distance from known face encoding
-        face_match_threshold: Threshold for considering a match (0.6 default)
-    
-    Returns:
-        str: Confidence percentage as string with % symbol
     """
     range_val = (1.0 - face_match_threshold)
     linear_val = (1.0 - face_distance) / (range_val * 2.0)
@@ -48,10 +41,6 @@ def setup_directories():
 def log_attendance(name, log_path):
     """
     Log attendance with timestamp to file
-    
-    Args:
-        name: Name of the recognized person
-        log_path: Path to log file
     """
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entry = f'{name}, {timestamp}, Attendance marked!\n'
@@ -67,17 +56,10 @@ def log_attendance(name, log_path):
 def draw_face_annotations(frame, face_locations, face_names, scale_factor=4):
     """
     Draw bounding boxes and names on detected faces
-    
-    Args:
-        frame: Original video frame
-        face_locations: List of face location coordinates (top, right, bottom, left)
-        face_names: List of names corresponding to faces
-        scale_factor: Factor to scale coordinates back to original size
-    
-    Returns:
-        frame: Frame with drawn annotations
     """
-    from config import BBOX_COLOR, TEXT_COLOR, TEXT_FONT, TEXT_SCALE, TEXT_THICKNESS
+    # Use default colors instead of importing from config to avoid circular imports
+    bbox_color = (0, 0, 255)  # Red
+    text_color = (255, 255, 255)  # White
     
     for (top, right, bottom, left), name in zip(face_locations, face_names):
         # Scale coordinates back to original frame size
@@ -87,15 +69,15 @@ def draw_face_annotations(frame, face_locations, face_names, scale_factor=4):
         left = int(left * scale_factor)
 
         # Draw bounding box around face
-        cv2.rectangle(frame, (left, top), (right, bottom), BBOX_COLOR, 2)
+        cv2.rectangle(frame, (left, top), (right, bottom), bbox_color, 2)
         
         # Draw background rectangle for name
         cv2.rectangle(frame, (left, bottom - 35), (right, bottom), 
-                     BBOX_COLOR, cv2.FILLED)
+                     bbox_color, cv2.FILLED)
         
         # Draw name and confidence text
         cv2.putText(frame, name, (left + 6, bottom - 6), 
-                   TEXT_FONT, TEXT_SCALE, TEXT_COLOR, TEXT_THICKNESS)
+                   cv2.FONT_HERSHEY_DUPLEX, 0.8, text_color, 1)
     
     return frame
 
@@ -103,12 +85,6 @@ def draw_face_annotations(frame, face_locations, face_names, scale_factor=4):
 def validate_known_faces(known_faces_dir):
     """
     Validate known faces directory and images
-    
-    Args:
-        known_faces_dir: Path to known faces directory
-    
-    Returns:
-        list: List of valid image files
     """
     valid_extensions = ('.png', '.jpg', '.jpeg')
     image_files = []
