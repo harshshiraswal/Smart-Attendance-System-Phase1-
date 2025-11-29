@@ -87,6 +87,27 @@ This is a personal project developed during vocational training. While primarily
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## 🎯 Live Demonstration
+
+<div align="center">
+
+![Smart Attendance System in Action](screenshots/)
+
+*Real-time face recognition system with professional UI and confidence scoring*
+
+</div>
+
+### 🔍 System Highlights
+- **Real-time Processing**: Live face detection and recognition
+- **Professional Interface**: Clean UI with system status overlay  
+- **High Accuracy**: Confidence-based recognition (85%+ threshold)
+- **Stable Performance**: Smooth face tracking without flickering
+- **Multi-face Support**: Simultaneous recognition of multiple persons
+
+📁 [View complete demonstration gallery](screenshots/)
+
+*Includes terminal sessions and real-time recognition examples from the operational system*
+
 # 🚀 Usage
 
 1. Allow camera access when prompted
