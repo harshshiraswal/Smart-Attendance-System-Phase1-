@@ -91,8 +91,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 <div align="center">
 
-![Smart Attendance System in Action]
-
 *Real-time face recognition system with professional UI and confidence scoring*
 
 </div>
