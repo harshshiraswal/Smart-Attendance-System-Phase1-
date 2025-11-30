@@ -3,7 +3,7 @@
 ## System Workflow
 
 ### 1. System Initialization
-![Terminal Startup](terminal_Start.png)
+![Terminal Startup](terminal_start.png)
 *System loads face database, initializes camera, and prepares for recognition*
 
 ### 2. Real-time Registeration & Recognition  
